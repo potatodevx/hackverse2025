@@ -10,7 +10,10 @@ import Home from './components/Home';
 import M1 from "./components/M1";
 import M2 from "./components/M2";
 import Cart from "./components/Cart";
+import Cart1 from "./components/Cart1";
+
 import { v4 as uuidv4 } from 'uuid';
+
 
 // Modern ChatViewer Component with larger iframe previews and clear chat button
 function StoredChatViewer() {
@@ -377,6 +380,7 @@ function App() {
         <Route path="/m1" element={<M1 />} />
         <Route path="/m2" element={<M2 />} />
         <Route path="/cart" element={<Cart />} />
+        <Route path="/home/:id" element={<Cart1 />} />
         <Route path="/ai-agent" element={<AIAgent />} /> {/* New route for AI Agent */}
       </Routes>
     </Router>
