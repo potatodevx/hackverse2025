@@ -12,12 +12,17 @@ import M2 from "./components/M2";
 import Cart from "./components/Cart";
 import { v4 as uuidv4 } from 'uuid';
 
-// StoredChatViewer Component - Modified to display HTML responses directly
+// Modern ChatViewer Component with larger iframe previews and clear chat button
 function StoredChatViewer() {
   const [chatHistory, setChatHistory] = useState([]);
   const [htmlResponses, setHtmlResponses] = useState([]);
   const [conversationId, setConversationId] = useState('');
+  const [previewLink, setPreviewLink] = useState(null);
   const chatViewerRef = useRef(null);
+  const linkPreviewRef = useRef(null);
+  
+  // Show/hide the chat widget
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   // Function to load data from localStorage
   const loadStoredData = useCallback(() => {
@@ -68,6 +73,29 @@ function StoredChatViewer() {
     }
   }, []);
 
+  // Clear chat history
+  const clearChat = () => {
+    // Show confirmation dialog
+    if (window.confirm("Are you sure you want to clear the chat history?")) {
+      localStorage.removeItem('userQueries');
+      localStorage.removeItem('htmlResponses');
+      localStorage.removeItem('chatHistory');
+      localStorage.removeItem('lastHtmlResponse');
+      localStorage.removeItem('lastUserQuery');
+      localStorage.removeItem('lastAiMessages');
+      localStorage.removeItem('aiMessages');
+      
+      // Generate a new conversation ID
+      const newConversationId = uuidv4();
+      localStorage.setItem('currentConversationId', newConversationId);
+      setConversationId(newConversationId);
+      
+      // Clear the local state
+      setChatHistory([]);
+      setHtmlResponses([]);
+    }
+  };
+
   // Initial load
   useEffect(() => {
     loadStoredData();
@@ -80,22 +108,11 @@ function StoredChatViewer() {
   
   // Setup a listener to detect localStorage changes
   useEffect(() => {
-    // Function to handle storage events
-    const handleStorageChange = (e) => {
-      if (e.key === 'userQueries' || e.key === 'htmlResponses' || e.key === 'currentConversationId') {
-        loadStoredData();
-      }
-    };
-    
-    // Add event listener
-    window.addEventListener('storage', handleStorageChange);
-    
-    // Poll for changes (as storage event only fires in other tabs)
+    // Poll for changes
     const intervalId = setInterval(loadStoredData, 1000);
     
     // Cleanup
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
       clearInterval(intervalId);
     };
   }, [loadStoredData]);
@@ -107,122 +124,209 @@ function StoredChatViewer() {
     }
   }, [chatHistory]);
 
-  // Alternative approach: Try to extract raw response directly from the lastRawApiResponse
+  // Handle link preview close when clicking outside
   useEffect(() => {
-    const checkForLatestHtmlResponse = () => {
-      try {
-        const rawResponse = localStorage.getItem('lastRawApiResponse');
-        if (rawResponse) {
-          // Try to extract HTML response from the raw response
-          const match = rawResponse.match(/\"html_response\":\s*\"(.*?)\"/);
-          if (match && match[1]) {
-            // Replace escaped quotes and newlines
-            let htmlContent = match[1].replace(/\\"/g, '"').replace(/\\n/g, '\n');
-            
-            // Store this HTML response if it's not already in our list
-            setHtmlResponses(prev => {
-              const exists = prev.some(item => item.html_response === htmlContent);
-              if (!exists) {
-                const newResponse = {
-                  html_response: htmlContent,
-                  timestamp: new Date().toISOString()
-                };
-                
-                // Also update localStorage
-                const storedResponses = JSON.parse(localStorage.getItem('htmlResponses') || '[]');
-                if (!storedResponses.some(item => item.html_response === htmlContent)) {
-                  storedResponses.push(newResponse);
-                  localStorage.setItem('htmlResponses', JSON.stringify(storedResponses));
-                }
-                
-                return [...prev, newResponse];
-              }
-              return prev;
-            });
-          }
-        }
-      } catch (error) {
-        console.error("Error extracting HTML response:", error);
+    const handleClickOutside = (event) => {
+      if (linkPreviewRef.current && !linkPreviewRef.current.contains(event.target)) {
+        setPreviewLink(null);
       }
     };
     
-    // Check on mount and periodically
-    checkForLatestHtmlResponse();
-    const intervalId = setInterval(checkForLatestHtmlResponse, 2000);
-    
-    return () => clearInterval(intervalId);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, []);
 
+  // Process HTML content to add link preview functionality
+  const processHtmlContent = (htmlContent) => {
+    // Create a temporary div to parse the HTML
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = htmlContent;
+    
+    // Find all links and add event handlers
+    const links = tempDiv.querySelectorAll('a');
+    links.forEach((link) => {
+      // Replace with a span that we can style better
+      const url = link.getAttribute('href');
+      const text = link.textContent;
+      
+      // Create a replacement element
+      const replacementSpan = document.createElement('span');
+      replacementSpan.innerHTML = `<span class="link-text cursor-pointer text-blue-300 hover:text-blue-100 underline" data-url="${url}">${text}</span>`;
+      
+      link.parentNode.replaceChild(replacementSpan, link);
+    });
+    
+    return tempDiv.innerHTML;
+  };
+
+  // Handle link hover to show preview
+  const handleLinkHover = (e) => {
+    if (e.target.classList.contains('link-text')) {
+      const url = e.target.getAttribute('data-url');
+      setPreviewLink({
+        url,
+        x: e.clientX,
+        y: e.clientY
+      });
+    }
+  };
+
+  // Handle link click
+  const handleLinkClick = (e) => {
+    if (e.target.classList.contains('link-text')) {
+      const url = e.target.getAttribute('data-url');
+      window.open(url, '_blank');
+    }
+  };
+
   return (
-    <div className="absolute left-0 top-0 bottom-0 z-20 w-[350px] bg-gradient-to-r from-purple-900/70 to-purple-800/50 backdrop-blur-md text-white p-4 shadow-xl flex flex-col h-full">
-      <div className="text-center mb-4">
-        <h2 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-pink-300 to-purple-300">
-          Virtual Girlfriend
-        </h2>
-        {conversationId && (
-          <p className="text-xs text-purple-300 mt-1">
-            Conversation ID: {conversationId.substring(0, 8)}...
-          </p>
+    <div className={`fixed bottom-8 left-8 transition-all duration-300 ease-in-out mb-[60px] ${isCollapsed ? 'w-16 h-16' : 'w-[400px] h-[600px]'}`}>
+      {/* Chat header/toggle button */}
+      <div 
+        className={`
+          bg-gradient-to-r from-purple-700 to-pink-600 rounded-t-xl p-3 flex justify-between items-center cursor-pointer
+          ${isCollapsed ? 'rounded-full shadow-lg' : 'rounded-t-xl shadow-md'}
+        `}
+        onClick={() => setIsCollapsed(!isCollapsed)}
+      >
+        {!isCollapsed && (
+          <>
+            <h2 className="text-lg font-bold text-white">Virtual Girlfriend</h2>
+            <div className="flex items-center space-x-2">
+              <div className="w-3 h-3 rounded-full bg-green-400 animate-pulse"></div>
+              <button 
+                className="text-white opacity-80 hover:opacity-100"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsCollapsed(!isCollapsed);
+                }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            </div>
+          </>
+        )}
+        {isCollapsed && (
+          <div className="w-full h-full flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+            </svg>
+          </div>
         )}
       </div>
       
-      {/* Chat message history */}
-      <div 
-        ref={chatViewerRef}
-        className="flex-grow overflow-y-auto scrollbar-thin scrollbar-thumb-purple-500 scrollbar-track-transparent mb-4 px-2"
-      >
-        {chatHistory.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-purple-300 opacity-70">
-            <p>No messages found in storage...</p>
-          </div>
-        ) : (
-          chatHistory.map((msg, index) => (
-            <div 
-              key={index} 
-              className={`message mb-4 ${msg.type === 'bot' ? 'bot-message' : 'user-message text-right'}`}
+      {/* Chat body */}
+      {!isCollapsed && (
+        <div className="bg-gradient-to-b from-gray-900 to-purple-900 backdrop-blur-md rounded-b-xl p-4 flex flex-col h-[calc(100%-48px)] shadow-xl border border-purple-800/30">
+          {/* Top actions bar */}
+          <div className="flex justify-between items-center mb-3">
+            {/* Conversation ID tag */}
+            {conversationId && (
+              <div className="bg-purple-800/30 text-xs rounded-full px-3 py-1 text-purple-300 w-max">
+                Chat #{conversationId.substring(0, 6)}
+              </div>
+            )}
+            
+            {/* Clear chat button */}
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                clearChat();
+              }}
+              className="text-xs bg-red-600/70 hover:bg-red-500 text-white px-3 py-1 rounded-full transition-colors duration-150"
             >
-              {msg.type === 'user' ? (
-                <div className="rounded-2xl rounded-tr-none bg-blue-600/70 p-3 max-w-[85%] inline-block">
-                  {msg.content}
-                  <span className="block text-xs mt-1 opacity-50">
-                    {new Date(msg.timestamp).toLocaleTimeString()}
-                  </span>
-                </div>
-              ) : (
-                <div className="rounded-2xl rounded-tl-none bg-purple-600/70 p-3 max-w-[85%] inline-block">
-                  <div dangerouslySetInnerHTML={{ __html: msg.content }} />
-                  <span className="block text-xs mt-1 opacity-50">
-                    {new Date(msg.timestamp).toLocaleTimeString()}
-                  </span>
-                </div>
-              )}
-            </div>
-          ))
-        )}
-        
-        {/* Latest HTML response if one exists but not in the chat history yet */}
-        {htmlResponses.length > 0 && 
-          !chatHistory.some(msg => 
-            msg.type === 'bot' && 
-            msg.content === htmlResponses[htmlResponses.length - 1].html_response
-          ) && (
-          <div className="message bot-message mb-4">
-            <div className="rounded-2xl rounded-tl-none bg-purple-600/70 p-3 max-w-[85%] inline-block">
-              <div dangerouslySetInnerHTML={{ 
-                __html: htmlResponses[htmlResponses.length - 1].html_response 
-              }} />
-              <span className="block text-xs mt-1 opacity-50">
-                {new Date(htmlResponses[htmlResponses.length - 1].timestamp).toLocaleTimeString()}
-              </span>
-            </div>
+              Clear Chat
+            </button>
           </div>
-        )}
-      </div>
+          
+          {/* Chat messages */}
+          <div 
+            ref={chatViewerRef}
+            className="flex-grow overflow-y-auto scrollbar-thin scrollbar-thumb-purple-500 scrollbar-track-transparent mb-4 px-2"
+            onMouseOver={handleLinkHover}
+            onClick={handleLinkClick}
+          >
+            {chatHistory.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-purple-300 opacity-70 space-y-4">
+                <div className="w-16 h-16 rounded-full bg-purple-800/30 flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                </div>
+                <p className="text-center">Start chatting with your virtual girlfriend...</p>
+              </div>
+            ) : (
+              chatHistory.map((msg, index) => (
+                <div 
+                  key={index} 
+                  className={`message mb-4 ${msg.type === 'bot' ? 'bot-message' : 'user-message text-right'}`}
+                >
+                  {msg.type === 'user' ? (
+                    <div className="rounded-2xl rounded-tr-none bg-blue-600/70 p-3 max-w-[85%] inline-block shadow-md border border-blue-500/20">
+                      {msg.content}
+                      <span className="block text-xs mt-1 opacity-50">
+                        {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl rounded-tl-none bg-purple-600/70 p-3 max-w-[85%] inline-block shadow-md border border-purple-500/20">
+                      <div 
+                        className="bot-content text-sm"
+                        dangerouslySetInnerHTML={{ __html: processHtmlContent(msg.content) }} 
+                      />
+                      <span className="block text-xs mt-1 opacity-50">
+                        {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+          
+          {/* Link preview popup */}
+          {previewLink && (
+            <div 
+              ref={linkPreviewRef}
+              className="fixed z-50 bg-gray-900 rounded-lg shadow-xl border border-purple-500/50 overflow-hidden w-[500px] h-[350px]"
+              style={{
+                left: `${Math.min(previewLink.x, window.innerWidth - 510)}px`,
+                top: `${Math.max(10, previewLink.y - 370)}px`
+              }}
+            >
+              <div className="bg-gradient-to-r from-purple-800 to-blue-800 p-2 text-xs text-white flex justify-between">
+                <span className="truncate max-w-[430px]">{previewLink.url}</span>
+                <button 
+                  className="hover:text-red-300"
+                  onClick={() => setPreviewLink(null)}
+                >
+                  ✕
+                </button>
+              </div>
+              <iframe 
+                src={previewLink.url} 
+                className="w-full h-[calc(100%-30px)]" 
+                title="Link Preview"
+                sandbox="allow-scripts allow-same-origin"
+              />
+            </div>
+          )}
+          
+          {/* Small notice at bottom */}
+          <div className="text-xs text-center text-purple-400/60 mt-2">
+            Responses updated automatically from storage
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-// AI Agent Component
+// AI Agent Component (updated to use the new StoredChatViewer)
 function AIAgent() {
   useEffect(() => {
     // Extract the `userid` from the URL
@@ -241,7 +345,7 @@ function AIAgent() {
     <>
       <Loader />
       <Leva hidden />
-      {/* Add a wrapper to manage relative positioning */}
+      {/* Main 3D scene */}
       <div className="relative w-full h-full">
         <Canvas
           shadows
@@ -251,13 +355,13 @@ function AIAgent() {
           <Experience />
         </Canvas>
         
-        {/* Use StoredChatViewer instead of the chat input UI */}
-        <StoredChatViewer />
-        
         {/* Ensure UI is layered above the Canvas */}
         <div className="absolute inset-0 z-10 pointer-events-none">
           <UI />
         </div>
+        
+        {/* Modern chat viewer as a floating widget */}
+        <StoredChatViewer />
       </div>
     </>
   );
