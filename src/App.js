@@ -10,6 +10,7 @@ import Home from './components/Home';
 import M1 from "./components/M1";
 import M2 from "./components/M2";
 import Cart from "./components/Cart";
+import Cart1 from "./components/Cart1";
 
 // AI Agent Component
 function AIAgent() {
@@ -58,6 +59,7 @@ function App() {
         <Route path="/m1" element={<M1 />} />
         <Route path="/m2" element={<M2 />} />
         <Route path="/cart" element={<Cart />} />
+        <Route path="/cart/:id" element={<Cart1 />} />
         <Route path="/ai-agent" element={<AIAgent />} /> {/* New route for AI Agent */}
       </Routes>
     </Router>
