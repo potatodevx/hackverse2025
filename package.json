@@ -20,7 +20,8 @@
     "react-router-dom": "^6.0.0",
     "react-scripts": "^5.0.1",
     "react-speech-kit": "^3.0.1",
-    "three": "^0.174.0"
+    "three": "^0.174.0",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@pmmmwh/react-refresh-webpack-plugin": "^0.5.10",
