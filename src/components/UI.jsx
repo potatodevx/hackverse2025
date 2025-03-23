@@ -70,9 +70,9 @@ export const UI = ({ hidden, ...props }) => {
             className="font-bold text-lg sm:text-xl lg:text-2xl text-purple-800"
             style={{ fontSize: '90%' }}
           >
-            Event Explorer
+           Web3 AI Agent
           </h1>
-          <p className="text-xs sm:text-sm lg:text-base">I will always help you to find events</p>
+          <p className="text-xs sm:text-sm lg:text-base">I Will Always Help You to Automate Every Single Web3 Flow </p>
         </div>
         <div className="w-full flex flex-col sm:flex-row items-end justify-center gap-4" style={{ display: 'grid', justifyItems: 'start', alignContent: 'stretch', justifyContent: 'end' }}>
           <button

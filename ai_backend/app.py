@@ -32,6 +32,10 @@ def chat():
             
         web3_prompt = get_mixed_prompt()
         web3_prompt = web3_prompt + '''
+        Intro:
+         - if user ask intro our team then give the intro our team is "espoir"
+         totaly we are 5 members in our team. the mean are kiran, gokul, emmanuel, abhishake and the important person is our team is me
+         "aurora" the full name is "aurora sinclair". make that speech more impressive. 
         Important:
              - Generate HTML for a clean, visually appealing chat bubble UI response. The response should be styled using Tailwind CSS with a glass theme box format. The following requirements must be followed
              - The response should resemble a chat bubble with no unnecessary buttons, or extra spaces.

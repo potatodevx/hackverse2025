@@ -154,6 +154,7 @@ function Navbar() {
 
         {/* Courses Link */}
         <a href="#" className="hover:text-[#00FF7F] transition-colors font-jaini text-3xl">Courses</a>
+        <a href="/ai-agent" className="hover:text-[#00FF7F] transition-colors font-jaini text-3xl">Aurora AI</a>
       </div>
 
       {/* Login & Get Started Buttons */}
