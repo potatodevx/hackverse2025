@@ -1,17 +1,16 @@
-import { useState, useEffect } from 'react';
-import { ethers } from 'ethers';
-import detectEthereumProvider from '@metamask/detect-provider';
+import { useState, useEffect } from "react";
+import { ethers } from "ethers";
+import detectEthereumProvider from "@metamask/detect-provider";
 
-// Staking Token ABI
 const stakingTokenABI = [
   "function balanceOf(address owner) view returns (uint256)",
   "function approve(address spender, uint256 amount) returns (bool)",
-  "function allowance(address owner, address spender) view returns (uint256)"
+  "function allowance(address owner, address spender) view returns (uint256)",
 ];
 
-// StakeDapp ABI
 const stakeDappABI = [
-  "function stake(uint256 amount)"
+  "function stake(uint256 amount)",
+  "function claimReward()",
 ];
 
 const STAKING_TOKEN_ADDRESS = "0x2b135a08c50e8871C6a8932B74d8cD0325e44D9b";
@@ -23,12 +22,11 @@ const StakeToken = ({ onBalanceUpdate }) => {
   const [signer, setSigner] = useState(null);
   const [stakingToken, setStakingToken] = useState(null);
   const [stakeDapp, setStakeDapp] = useState(null);
-  const [amountToApprove, setAmountToApprove] = useState('');
-  const [tokenBalance, setTokenBalance] = useState('0');
-  const [allowance, setAllowance] = useState('0'); // State to track allowance
+  const [amountToApprove, setAmountToApprove] = useState("");
+  const [tokenBalance, setTokenBalance] = useState("0");
+  const [allowance, setAllowance] = useState("0");
   const [error, setError] = useState(null);
 
-  // Connect to MetaMask
   const connectWallet = async () => {
     try {
       setError(null);
@@ -43,8 +41,7 @@ const StakeToken = ({ onBalanceUpdate }) => {
       try {
         accounts = await provider.send("eth_requestAccounts", []);
       } catch (err) {
-        setError("Failed to connect to MetaMask. Please unlock your wallet or allow access.");
-        console.error("MetaMask connection error:", err);
+        setError("Failed to connect to MetaMask. Please unlock your wallet.");
         return;
       }
 
@@ -55,144 +52,149 @@ const StakeToken = ({ onBalanceUpdate }) => {
       setSigner(signer);
       setAccount(userAddress);
 
-      // Initialize staking token contract
-      const stakingTokenContract = new ethers.Contract(STAKING_TOKEN_ADDRESS, stakingTokenABI, signer);
+      const stakingTokenContract = new ethers.Contract(
+        STAKING_TOKEN_ADDRESS,
+        stakingTokenABI,
+        signer
+      );
       setStakingToken(stakingTokenContract);
 
-      // Initialize StakeDapp contract
-      const stakeDappContract = new ethers.Contract(STAKE_DAPP_ADDRESS, stakeDappABI, signer);
+      const stakeDappContract = new ethers.Contract(
+        STAKE_DAPP_ADDRESS,
+        stakeDappABI,
+        signer
+      );
       setStakeDapp(stakeDappContract);
 
-      // Fetch balance and allowance after connecting
       fetchBalance(userAddress, stakingTokenContract);
       fetchAllowance(userAddress, stakingTokenContract);
     } catch (err) {
-      setError("Unexpected error during wallet connection. Check console for details.");
-      console.error("Wallet connection error:", err);
+      setError("Unexpected error during wallet connection.");
     }
   };
 
-  // Fetch balance
   const fetchBalance = async (userAccount, stakingTokenContract) => {
     try {
       if (stakingTokenContract && userAccount) {
         const balance = await stakingTokenContract.balanceOf(userAccount);
-        const formattedBalance = ethers.utils.formatEther(balance);
-        setTokenBalance(formattedBalance);
+        setTokenBalance(ethers.utils.formatEther(balance));
         if (onBalanceUpdate) {
-          onBalanceUpdate(formattedBalance);
+          onBalanceUpdate(ethers.utils.formatEther(balance));
         }
       }
     } catch (err) {
-      setError("Failed to fetch balance. Check console for details.");
-      console.error("Balance fetch error:", err);
+      setError("Failed to fetch balance.");
     }
   };
 
-  // Fetch allowance
   const fetchAllowance = async (userAccount, stakingTokenContract) => {
     try {
       if (stakingTokenContract && userAccount) {
-        const allowance = await stakingTokenContract.allowance(userAccount, STAKE_DAPP_ADDRESS);
-        const formattedAllowance = ethers.utils.formatEther(allowance);
-        setAllowance(formattedAllowance);
+        const allowance = await stakingTokenContract.allowance(
+          userAccount,
+          STAKE_DAPP_ADDRESS
+        );
+        setAllowance(ethers.utils.formatEther(allowance));
       }
     } catch (err) {
-      setError("Failed to fetch allowance. Check console for details.");
-      console.error("Allowance fetch error:", err);
+      setError("Failed to fetch allowance.");
     }
   };
 
-  // Approve tokens
   const handleApprove = async () => {
-    if (!stakingToken || !account) {
-      setError("Connect wallet first!");
-      return;
-    }
-    if (!amountToApprove) {
-      setError("Enter an amount to approve!");
+    if (!stakingToken || !account || !amountToApprove) {
+      setError("Enter an amount to approve and connect wallet first!");
       return;
     }
     try {
       setError(null);
-      const amountToApproveWei = ethers.utils.parseEther(amountToApprove);
-      const tx = await stakingToken.approve(STAKE_DAPP_ADDRESS, amountToApproveWei);
+      const tx = await stakingToken.approve(
+        STAKE_DAPP_ADDRESS,
+        ethers.utils.parseEther(amountToApprove)
+      );
       await tx.wait();
-      alert("Approval successful!");
       fetchBalance(account, stakingToken);
-      fetchAllowance(account, stakingToken); // Refresh allowance after approval
+      fetchAllowance(account, stakingToken);
     } catch (err) {
-      setError("Approval failed: " + (err.reason || err.message));
-      console.error("Approval error:", err);
+      setError("Approval failed.");
     }
   };
 
-  // Stake tokens
   const handleStake = async () => {
+    if (!stakeDapp || !account || !amountToApprove) {
+      setError("Enter an amount to stake and connect wallet first!");
+      return;
+    }
+    try {
+      setError(null);
+      const tx = await stakeDapp.stake(ethers.utils.parseEther(amountToApprove));
+      await tx.wait();
+      fetchBalance(account, stakingToken);
+      fetchAllowance(account, stakingToken);
+    } catch (err) {
+      setError("Staking failed.");
+    }
+  };
+
+  const handleClaimReward = async () => {
     if (!stakeDapp || !account) {
       setError("Connect wallet first!");
       return;
     }
-    if (!amountToApprove) {
-      setError("Enter an amount to stake!");
-      return;
-    }
     try {
       setError(null);
-      const amountToStake = ethers.utils.parseEther(amountToApprove);
-
-      // Check balance
-      const balanceWei = ethers.utils.parseEther(tokenBalance);
-      if (amountToStake.gt(balanceWei)) {
-        setError("Insufficient balance to stake this amount!");
-        return;
-      }
-
-      // Check allowance
-      const allowanceWei = ethers.utils.parseEther(allowance);
-      if (amountToStake.gt(allowanceWei)) {
-        setError("Insufficient allowance. Please approve more tokens.");
-        return;
-      }
-
-      // Attempt to stake with a manual gas limit
-      const tx = await stakeDapp.stake(amountToStake, { gasLimit: 300000 });
+      const tx = await stakeDapp.claimReward();
       await tx.wait();
-      alert("Staking successful!");
-      fetchBalance(account, stakingToken); // Refresh balance after staking
-      fetchAllowance(account, stakingToken); // Refresh allowance after staking
+      fetchBalance(account, stakingToken);
     } catch (err) {
-      if (err.code === "UNPREDICTABLE_GAS_LIMIT") {
-        setError("Gas estimation failed: " + (err.reason || "Try increasing the gas limit or check contract logic."));
-      } else if (err.reason) {
-        setError("Staking failed: " + err.reason);
-      } else {
-        setError("Staking failed: " + err.message);
-      }
-      console.error("Staking error:", err);
+      setError("Claiming rewards failed.");
     }
   };
 
   return (
-    <div className="StakeToken">
-      <h2>Stake Token</h2>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+    <div className="flex flex-col items-center p-6 bg-gray-900 text-white min-h-screen">
+      <h2 className="text-3xl font-bold mb-4">Stake Token</h2>
+      {error && <p className="text-red-500">{error}</p>}
       {!account ? (
-        <button onClick={connectWallet}>Connect MetaMask</button>
+        <button
+          className="bg-blue-600 px-6 py-2 rounded-lg text-white hover:bg-blue-500 transition"
+          onClick={connectWallet}
+        >
+          Connect MetaMask
+        </button>
       ) : (
-        <>
-          <p>Account: {account}</p>
-          <p>Balance: {tokenBalance} STK</p>
-          <p>Allowance for StakeDapp: {allowance} STK</p>
+        <div className="w-full max-w-md bg-gray-800 p-6 rounded-lg shadow-md">
+          <p className="mb-2">Account: {account}</p>
+          <p className="mb-2">Balance: {tokenBalance} STK</p>
+          <p className="mb-4">Allowance: {allowance} STK</p>
           <input
             type="text"
+            className="w-full p-2 rounded-md bg-gray-700 text-white outline-none mb-2"
             placeholder="Amount to approve/stake"
             value={amountToApprove}
             onChange={(e) => setAmountToApprove(e.target.value)}
           />
-          <button onClick={handleApprove}>Approve Tokens</button>
-          <button onClick={handleStake}>Stake Tokens</button>
-        </>
+          <div className="flex gap-3">
+            <button
+              className="bg-green-600 px-4 py-2 rounded-lg hover:bg-green-500 transition w-full"
+              onClick={handleApprove}
+            >
+              Approve
+            </button>
+            <button
+              className="bg-yellow-600 px-4 py-2 rounded-lg hover:bg-yellow-500 transition w-full"
+              onClick={handleStake}
+            >
+              Stake
+            </button>
+          </div>
+          <button
+            className="bg-purple-600 px-4 py-2 rounded-lg hover:bg-purple-500 transition w-full mt-3"
+            onClick={handleClaimReward}
+          >
+            Claim Rewards
+          </button>
+        </div>
       )}
     </div>
   );

@@ -11,7 +11,7 @@ import M1 from "./components/M1";
 import M2 from "./components/M2";
 import Cart from "./components/Cart";
 import Cart1 from "./components/Cart1";
-import StakeToken from './components/stakeToken';
+import StakeToken from './components/stackToken';
 
 import { v4 as uuidv4 } from 'uuid';
 
