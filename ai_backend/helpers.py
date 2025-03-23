@@ -27,7 +27,7 @@ def get_courses_from_api():
         # Format the courses data as a string
         formatted_courses = ""
         for course in courses_data:
-            formatted_courses += f"- {course.get('courseName', 'No Title')}: {course.get('courseDescription', 'No Description')}, URl link: https://courses-npmj.vercel.app/api/courses/{course.get('courseId', 'No Price')}\n"
+            formatted_courses += f"- {course.get('courseName', 'No Title')}: {course.get('courseDescription', 'No Description')}, URl link: https://hackverse2025.vercel.app/home/{course.get('courseId', 'No Price')}\n"
         
         return formatted_courses
     except Exception as e:

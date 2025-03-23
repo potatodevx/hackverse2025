@@ -11,11 +11,12 @@ import M1 from "./components/M1";
 import M2 from "./components/M2";
 import Cart from "./components/Cart";
 import Cart1 from "./components/Cart1";
+import StakeToken from './components/stackToken';
 
 import { v4 as uuidv4 } from 'uuid';
 
 
-// Modern ChatViewer Component with larger iframe previews and clear chat button
+// Modern ChatViewer Component with draggable link previews
 function StoredChatViewer() {
   const [chatHistory, setChatHistory] = useState([]);
   const [htmlResponses, setHtmlResponses] = useState([]);
@@ -23,6 +24,10 @@ function StoredChatViewer() {
   const [previewLink, setPreviewLink] = useState(null);
   const chatViewerRef = useRef(null);
   const linkPreviewRef = useRef(null);
+  
+  // Dragging state
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   
   // Show/hide the chat widget
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -127,19 +132,34 @@ function StoredChatViewer() {
     }
   }, [chatHistory]);
 
-  // Handle link preview close when clicking outside
+  // Handle mouse events for dragging
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (linkPreviewRef.current && !linkPreviewRef.current.contains(event.target)) {
-        setPreviewLink(null);
+    if (!previewLink) return;
+    
+    const handleMouseMove = (e) => {
+      if (isDragging && previewLink) {
+        setPreviewLink(prev => ({
+          ...prev,
+          x: e.clientX - dragOffset.x,
+          y: e.clientY - dragOffset.y
+        }));
       }
     };
     
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+    const handleMouseUp = () => {
+      setIsDragging(false);
     };
-  }, []);
+    
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+    
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging, dragOffset, previewLink]);
 
   // Process HTML content to add link preview functionality
   const processHtmlContent = (htmlContent) => {
@@ -168,11 +188,14 @@ function StoredChatViewer() {
   const handleLinkHover = (e) => {
     if (e.target.classList.contains('link-text')) {
       const url = e.target.getAttribute('data-url');
-      setPreviewLink({
-        url,
-        x: e.clientX,
-        y: e.clientY
-      });
+      // Only show preview if it's not already showing for this URL
+      if (!previewLink || previewLink.url !== url) {
+        setPreviewLink({
+          url,
+          x: e.clientX + 20,
+          y: e.clientY - 100
+        });
+      }
     }
   };
 
@@ -183,9 +206,24 @@ function StoredChatViewer() {
       window.open(url, '_blank');
     }
   };
+  
+  // Start dragging the preview
+  const startDragging = (e) => {
+    if (previewLink) {
+      // Only start dragging from the header
+      if (e.target.closest('.preview-header')) {
+        setIsDragging(true);
+        setDragOffset({
+          x: e.clientX - previewLink.x,
+          y: e.clientY - previewLink.y
+        });
+        e.preventDefault();
+      }
+    }
+  };
 
   return (
-    <div className={`fixed bottom-8 left-8 transition-all duration-300 ease-in-out mb-[60px] ${isCollapsed ? 'w-16 h-16' : 'w-[400px] h-[600px]'}`}>
+    <div className={`fixed bottom-8 left-8 z-40 transition-all duration-300 ease-in-out ${isCollapsed ? 'w-16 h-16' : 'w-[400px] h-[600px]'}`}>
       {/* Chat header/toggle button */}
       <div 
         className={`
@@ -291,38 +329,58 @@ function StoredChatViewer() {
             )}
           </div>
           
-          {/* Link preview popup */}
-          {previewLink && (
-            <div 
-              ref={linkPreviewRef}
-              className="fixed z-50 bg-gray-900 rounded-lg shadow-xl border border-purple-500/50 overflow-hidden w-[500px] h-[350px]"
-              style={{
-                left: `${Math.min(previewLink.x, window.innerWidth - 510)}px`,
-                top: `${Math.max(10, previewLink.y - 370)}px`
-              }}
-            >
-              <div className="bg-gradient-to-r from-purple-800 to-blue-800 p-2 text-xs text-white flex justify-between">
-                <span className="truncate max-w-[430px]">{previewLink.url}</span>
-                <button 
-                  className="hover:text-red-300"
-                  onClick={() => setPreviewLink(null)}
-                >
-                  ✕
-                </button>
-              </div>
-              <iframe 
-                src={previewLink.url} 
-                className="w-full h-[calc(100%-30px)]" 
-                title="Link Preview"
-                sandbox="allow-scripts allow-same-origin"
-              />
-            </div>
-          )}
-          
           {/* Small notice at bottom */}
           <div className="text-xs text-center text-purple-400/60 mt-2">
             Responses updated automatically from storage
           </div>
+        </div>
+      )}
+      
+      {/* Draggable Link preview popup */}
+      {previewLink && (
+        <div 
+          ref={linkPreviewRef}
+          className={`fixed z-50 bg-gray-900 rounded-lg shadow-xl border border-purple-500/50 overflow-hidden w-[500px] h-[350px] ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+          style={{
+            left: `${Math.max(0, Math.min(previewLink.x, window.innerWidth - 500))}px`,
+            top: `${Math.max(0, Math.min(previewLink.y, window.innerHeight - 350))}px`
+          }}
+          onMouseDown={startDragging}
+        >
+          <div className="preview-header bg-gradient-to-r from-purple-800 to-blue-800 p-2 text-xs text-white flex justify-between items-center">
+            <div className="flex items-center space-x-2 flex-grow">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
+              </svg>
+              <span className="truncate max-w-[380px]">{previewLink.url}</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <button 
+                className="hover:bg-blue-700 p-1 rounded"
+                onClick={() => window.open(previewLink.url, '_blank')}
+                title="Open in new tab"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </button>
+              <button 
+                className="hover:bg-red-700 p-1 rounded"
+                onClick={() => setPreviewLink(null)}
+                title="Close preview"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <iframe 
+            src={previewLink.url} 
+            className="w-full h-[calc(100%-32px)]" 
+            title="Link Preview"
+            sandbox="allow-scripts allow-same-origin"
+          />
         </div>
       )}
     </div>
@@ -381,7 +439,8 @@ function App() {
         <Route path="/m2" element={<M2 />} />
         <Route path="/cart" element={<Cart />} />
         <Route path="/home/:id" element={<Cart1 />} />
-        <Route path="/ai-agent" element={<AIAgent />} /> {/* New route for AI Agent */}
+        <Route path="/ai-agent" element={<AIAgent />} />
+        <Route path="/stake-token" element={<StakeToken />} />
       </Routes>
     </Router>
   );

@@ -39,7 +39,7 @@ def chat():
         Important:
              - Generate HTML for a clean, visually appealing chat bubble UI response. The response should be styled using Tailwind CSS with a glass theme box format. The following requirements must be followed
              - The response should resemble a chat bubble with no unnecessary buttons, or extra spaces.
-             - Ensure the text is easy to read and visually engaging. Do not use white color for the text.
+             - Ensure the text is easy to read and visually engaging. use "bg-purple-600/70" for the bg color and "text-white" for the text color.
              - Include appropriate emojis to enhance the chat experience, but avoid using icons add the link emoji for each of the link if it contain in the ui.
              - If any URLs are present, make them clickable and styled properly (without showing the raw URL).
              - The UI should be responsive and look good on both desktop and mobile devices.
