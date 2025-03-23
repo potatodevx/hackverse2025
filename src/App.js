@@ -11,6 +11,7 @@ import M1 from "./components/M1";
 import M2 from "./components/M2";
 import Cart from "./components/Cart";
 import Cart1 from "./components/Cart1";
+import StakeToken from './components/stakeToken';
 
 import { v4 as uuidv4 } from 'uuid';
 
@@ -438,7 +439,8 @@ function App() {
         <Route path="/m2" element={<M2 />} />
         <Route path="/cart" element={<Cart />} />
         <Route path="/home/:id" element={<Cart1 />} />
-        <Route path="/ai-agent" element={<AIAgent />} /> {/* New route for AI Agent */}
+        <Route path="/ai-agent" element={<AIAgent />} />
+        <Route path="/stake-token" element={<StakeToken />} />
       </Routes>
     </Router>
   );
