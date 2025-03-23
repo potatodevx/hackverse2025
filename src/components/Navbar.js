@@ -62,7 +62,7 @@ function Navbar() {
       className="w-full bg-[#0284c7] hover:bg-[#0369a1] text-white rounded-md py-3 font-press mt-4 text-sm"
       onClick={() => navigate("/home")}
     >
-      All Courses >
+      All Courses 
     </button>
               </div>
             </div>
